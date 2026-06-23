@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpellTris - The Word-Building Tetris Game</title>
+    <meta name="description" content="A unique Tetris variant where rows are cleared by forming 4-6 letter words vertically or horizontally. Rotate letters, clear lines, and trigger massive cascades!">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="glowing-orb orb-1"></div>
+    <div class="glowing-orb orb-2"></div>
+
+    <div class="app-container">
+        <header>
+            <h1 id="game-title" class="neon-text-magenta">SPELL<span class="neon-text-cyan">TRIS</span></h1>
+            <p class="subtitle">Match Letters • Form Words • Clear Rows</p>
+        </header>
+
+        <main class="game-layout">
+            <!-- Left Column: Hold and Instructions -->
+            <section class="side-panel left-panel">
+                <div class="panel-card glass-panel" id="hold-panel">
+                    <h2 class="panel-title">HOLD</h2>
+                    <div class="canvas-container">
+                        <canvas id="hold-canvas" width="100" height="100"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel instruction-card">
+                    <h2 class="panel-title">CONTROLS</h2>
+                    <ul class="control-list">
+                        <li><span class="key">A</span> / <span class="key">D</span> or <span class="key">←</span> / <span class="key">→</span> : Move</li>
+                        <li><span class="key">W</span> / <span class="key">↑</span> : Rotate</li>
+                        <li><span class="key">S</span> / <span class="key">↓</span> : Soft Drop</li>
+                        <li><span class="key">Space</span> : Hard Drop</li>
+                        <li><span class="key">C</span> / <span class="key">Shift</span> : Hold Piece</li>
+                        <li><span class="key">P</span> / <span class="key">Esc</span> : Pause</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Center Column: Main Game Grid -->
+            <section class="center-panel">
+                <div class="board-wrapper glass-panel">
+                    <div class="canvas-container main-board-container">
+                        <canvas id="game-canvas" width="300" height="600"></canvas>
+                        
+                        <!-- Overlay Screens -->
+                        <div id="start-screen" class="overlay-screen active">
+                            <h2 class="neon-text-gold">READY TO SPELL?</h2>
+                            <p class="overlay-desc">Form 4-6 letter English words vertically or horizontally to clear rows. Vertical words clear all rows they span!</p>
+                            <button id="start-btn" class="cyber-btn neon-border-magenta">START GAME</button>
+                        </div>
+
+                        <div id="pause-screen" class="overlay-screen">
+                            <h2 class="neon-text-cyan">GAME PAUSED</h2>
+                            <p class="overlay-desc">Press P or Resume to continue spelling</p>
+                            <button id="resume-btn" class="cyber-btn neon-border-cyan">RESUME</button>
+                        </div>
+
+                        <div id="gameover-screen" class="overlay-screen">
+                            <h2 class="neon-text-red">GAME OVER</h2>
+                            <p class="overlay-desc">Your stack hit the ceiling!</p>
+                            <div class="final-stats">
+                                <p>Score: <span id="final-score" class="stat-highlight">0</span></p>
+                                <p>Words Found: <span id="final-words" class="stat-highlight">0</span></p>
+                            </div>
+                            <button id="restart-btn" class="cyber-btn neon-border-gold">PLAY AGAIN</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-controls">
+                    <button id="audio-toggle-btn" class="icon-btn" title="Toggle Sound">
+                        <svg id="sound-icon-on" viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18.07,19.86 21,16.28 21,12C21,7.72 18.07,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z" />
+                        </svg>
+                        <svg id="sound-icon-off" viewBox="0 0 24 24" width="24" height="24" class="hidden">
+                            <path fill="currentColor" d="M12,4L7,9H3V15H7L12,20V4M16.5,12A4.5,4.5 0 0,0 14,7.97V10.18L16.45,12.63C16.48,12.42 16.5,12.21 16.5,12M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12A9,9 0 0,0 14,3.23V5.29C16.89,6.15 19,8.83 19,12M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.44 14,18.64V20.7C15.38,20.44 16.63,19.78 17.68,18.9L20.73,21.95L22,20.68L4.27,3Z" />
+                        </svg>
+                    </button>
+                    <button id="pause-toggle-btn" class="icon-btn" title="Pause Game">
+                        <svg id="pause-icon" viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M14,19H18V5H14M6,19H10V5H6V19Z" />
+                        </svg>
+                        <svg id="play-icon" viewBox="0 0 24 24" width="24" height="24" class="hidden">
+                            <path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Column: Next Piece, Stats and Found Words -->
+            <section class="side-panel right-panel">
+                <div class="panel-card glass-panel" id="next-panel">
+                    <h2 class="panel-title">NEXT</h2>
+                    <div class="canvas-container">
+                        <canvas id="next-canvas" width="100" height="100"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel" id="stats-panel">
+                    <h2 class="panel-title">STATS</h2>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">SCORE</span>
+                            <span id="score-val" class="stat-value neon-text-magenta">000000</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">LEVEL</span>
+                            <span id="level-val" class="stat-value neon-text-cyan">1</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">WORDS FOUND</span>
+                            <span id="words-val" class="stat-value neon-text-gold">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">HIGH SCORE</span>
+                            <span id="high-score-val" class="stat-value">000000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel" id="words-panel">
+                    <h2 class="panel-title">DICTIONARY LOG</h2>
+                    <div class="words-log-container">
+                        <div id="words-log-empty" class="words-log-placeholder">No words spelled yet...</div>
+                        <ul id="words-log-list" class="words-log-list"></ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="game-footer">
+            <p>SpellTris © 2026 • A Word-Building Puzzle Adventure</p>
+        </footer>
+    </div>
+
+    <!-- Alert / Toast for word clears -->
+    <div id="word-alert" class="word-alert-banner hidden">
+        <span id="alert-word-text">WORD!</span>
+        <span id="alert-word-points">+100 PTS</span>
+    </div>
+
+    <!-- Load Game Files -->
+    <script src="words.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
