@@ -1,3 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpellTris - The Word-Building Tetris Game</title>
+    <meta name="description" content="A unique Tetris variant where rows are cleared by forming 4-6 letter words vertically or horizontally. Rotate letters, clear lines, and trigger massive cascades!">
+    <style>
+:root {
+    --bg-color: #06070a;
+    --panel-bg: rgba(13, 15, 24, 0.7);
+    --panel-border: rgba(255, 255, 255, 0.06);
+    --panel-border-glow: rgba(0, 240, 255, 0.15);
+    
+    --neon-cyan: #00f0ff;
+    --neon-magenta: #ff0077;
+    --neon-gold: #ffb700;
+    --neon-red: #ff2a2a;
+    --neon-green: #05ff85;
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-dark: #475569;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Background effects */
+.stars {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -3;
+    background-image: 
+        radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(1.5px 1.5px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 110px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 150px 200px, #eee, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    opacity: 0.15;
+}
+
+.glowing-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    z-index: -2;
+    opacity: 0.2;
+    pointer-events: none;
+    animation: float 20s infinite alternate ease-in-out;
+}
+
+.orb-1 {
+    width: 400px;
+    height: 400px;
+    background: var(--neon-magenta);
+    top: -100px;
+    left: -100px;
+}
+
+.orb-2 {
+    width: 500px;
+    height: 500px;
+    background: var(--neon-cyan);
+    bottom: -150px;
+    right: -150px;
+    animation-delay: -5s;
+}
+
+@keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(50px, 50px) scale(1.1); }
+}
+
+/* Main Layout */
+.app-container {
+    width: 100%;
+    max-width: 1100px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+#game-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    letter-spacing: 5px;
+    margin-bottom: 5px;
+}
+
+.neon-text-magenta {
+    color: #fff;
+    text-shadow: 
+        0 0 5px #fff,
+        0 0 10px var(--neon-magenta),
+        0 0 20px var(--neon-magenta),
+        0 0 40px var(--neon-magenta);
+}
+
+.neon-text-cyan {
+    color: #fff;
+    text-shadow: 
+        0 0 5px #fff,
+        0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-cyan),
+        0 0 40px var(--neon-cyan);
+}
+
+.neon-text-gold {
+    color: #fff;
+    text-shadow: 
+        0 0 5px #fff,
+        0 0 10px var(--neon-gold),
+        0 0 20px var(--neon-gold);
+}
+
+.neon-text-red {
+    color: #fff;
+    text-shadow: 
+        0 0 5px #fff,
+        0 0 10px var(--neon-red),
+        0 0 20px var(--neon-red);
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+/* Game Interface */
+.game-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 280px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* Glass Panels */
+.glass-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.4),
+        0 0 15px var(--panel-border-glow);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+
+.panel-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    width: 100%;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+/* Side Panels */
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Canvas Containers */
+.canvas-container {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Instructions */
+.instruction-card {
+    align-items: flex-start;
+}
+
+.control-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.control-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-secondary);
+}
+
+.key {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 3px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+
+/* Center Panel (Board) */
+.center-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.board-wrapper {
+    position: relative;
+    border: 2px solid rgba(0, 240, 255, 0.3);
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
+    padding: 10px;
+}
+
+.main-board-container {
+    position: relative;
+}
+
+/* Overlay Screen inside Canvas container */
+.overlay-screen {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    background: rgba(8, 10, 18, 0.92);
+    border-radius: 6px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.overlay-screen.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.overlay-screen h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 2px;
+}
+
+.overlay-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 240px;
+}
+
+.final-stats {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.9rem;
+    width: 80%;
+}
+
+.stat-highlight {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    color: var(--neon-gold);
+}
+
+/* Cyber Button */
+.cyber-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+    background: transparent;
+    border: 2px solid transparent;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.neon-border-magenta {
+    border-color: var(--neon-magenta);
+    box-shadow: 0 0 10px rgba(255, 0, 119, 0.2);
+}
+
+.neon-border-magenta:hover {
+    background: var(--neon-magenta);
+    box-shadow: 0 0 20px rgba(255, 0, 119, 0.5);
+    transform: scale(1.05);
+}
+
+.neon-border-cyan {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.neon-border-cyan:hover {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+    transform: scale(1.05);
+}
+
+.neon-border-gold {
+    border-color: var(--neon-gold);
+    box-shadow: 0 0 10px rgba(255, 183, 0, 0.2);
+}
+
+.neon-border-gold:hover {
+    background: var(--neon-gold);
+    color: #000;
+    box-shadow: 0 0 20px rgba(255, 183, 0, 0.5);
+    transform: scale(1.05);
+}
+
+/* Quick Controls */
+.quick-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.icon-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Stats panel */
+.stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 1.5px;
+}
+
+.stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* Dictionary Log */
+#words-panel {
+    flex-grow: 1;
+    min-height: 200px;
+    width: 100%;
+}
+
+.words-log-container {
+    width: 100%;
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+}
+
+/* Custom scrollbar for word list */
+.words-log-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.words-log-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 2px;
+}
+
+.words-log-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 240, 255, 0.3);
+    border-radius: 2px;
+}
+
+.words-log-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 240, 255, 0.6);
+}
+
+.words-log-placeholder {
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 40px;
+    font-style: italic;
+}
+
+.words-log-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.words-log-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 3px solid var(--neon-gold);
+    border-radius: 0 4px 4px 0;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    animation: slideIn 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.word-name {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+.word-score {
+    color: var(--neon-gold);
+    font-weight: 600;
+}
+
+/* Word Alert Banner (Toast) */
+.word-alert-banner {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50px);
+    background: rgba(8, 10, 18, 0.95);
+    border: 2px solid var(--neon-gold);
+    box-shadow: 
+        0 0 20px rgba(255, 183, 0, 0.3),
+        0 10px 40px rgba(0, 0, 0, 0.5);
+    border-radius: 30px;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.word-alert-banner.active {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+#alert-word-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #fff;
+    text-shadow: 0 0 10px var(--neon-gold);
+}
+
+#alert-word-points {
+    color: var(--neon-green);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* Footer styling */
+.game-footer {
+    text-align: center;
+    color: var(--text-dark);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+
+/* Media Queries for Responsiveness */
+@media (max-width: 900px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .side-panel.left-panel {
+        order: 2;
+        flex-direction: row;
+    }
+    
+    .side-panel.right-panel {
+        order: 3;
+        flex-direction: row;
+    }
+    
+    #hold-panel, .instruction-card, #next-panel, #stats-panel, #words-panel {
+        flex: 1;
+        min-height: auto;
+    }
+    
+    .words-log-container {
+        max-height: 120px;
+    }
+}
+
+/* --- LANGUAGE LEARNING SETUP GRID & SELECTS --- */
+.setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    width: 90%;
+    margin-bottom: 8px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 10px 14px;
+    border-radius: 8px;
+}
+
+.setup-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.setup-item label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+}
+
+.cyber-select {
+    background: rgba(8, 10, 18, 0.7);
+    border: 1px solid rgba(255, 0, 119, 0.25);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cyber-select:focus, .cyber-select:hover {
+    border-color: var(--neon-magenta);
+    box-shadow: 0 0 8px rgba(255, 0, 119, 0.2);
+}
+
+.cyber-select option {
+    background-color: #0b0c10;
+    color: #fff;
+}
+
+/* --- TRANSLATION CHALLENGE MODAL ELEMENTS --- */
+.challenge-feedback.correct {
+    background: rgba(5, 255, 133, 0.12);
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+    box-shadow: 0 0 8px rgba(5, 255, 133, 0.15);
+    animation: correct-pulse 1s infinite alternate;
+}
+
+.challenge-feedback.incorrect {
+    background: rgba(255, 42, 42, 0.12);
+    border: 1px solid var(--neon-red);
+    color: var(--neon-red);
+    box-shadow: 0 0 8px rgba(255, 42, 42, 0.15);
+}
+
+@keyframes correct-pulse {
+    from { box-shadow: 0 0 5px rgba(5, 255, 133, 0.2); }
+    to { box-shadow: 0 0 15px rgba(5, 255, 133, 0.45); }
+}
+
+</style>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="glowing-orb orb-1"></div>
+    <div class="glowing-orb orb-2"></div>
+
+    <div class="app-container">
+        <header>
+            <h1 id="game-title" class="neon-text-magenta">SPELL<span class="neon-text-cyan">TRIS</span></h1>
+            <p class="subtitle">Match Letters • Form Words • Clear Rows</p>
+        </header>
+
+        <main class="game-layout">
+            <!-- Left Column: Hold and Instructions -->
+            <section class="side-panel left-panel">
+                <div class="panel-card glass-panel" id="hold-panel">
+                    <h2 class="panel-title">HOLD</h2>
+                    <div class="canvas-container">
+                        <canvas id="hold-canvas" width="100" height="100"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel instruction-card">
+                    <h2 class="panel-title">CONTROLS</h2>
+                    <ul class="control-list">
+                        <li><span class="key">A</span> / <span class="key">D</span> or <span class="key">←</span> / <span class="key">→</span> : Move</li>
+                        <li><span class="key">W</span> / <span class="key">↑</span> : Rotate</li>
+                        <li><span class="key">S</span> / <span class="key">↓</span> : Soft Drop</li>
+                        <li><span class="key">Space</span> : Hard Drop</li>
+                        <li><span class="key">C</span> / <span class="key">Shift</span> : Hold Piece</li>
+                        <li><span class="key">P</span> / <span class="key">Esc</span> : Pause</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Center Column: Main Game Grid -->
+            <section class="center-panel">
+                <div class="board-wrapper glass-panel">
+                    <div class="canvas-container main-board-container">
+                        <canvas id="game-canvas" width="300" height="600"></canvas>
+                        
+                        <!-- Overlay Screens -->
+                        <div id="start-screen" class="overlay-screen active">
+                            <h2 class="neon-text-gold" style="margin-bottom: 2px;">READY TO LEARN?</h2>
+                            <p class="overlay-desc" style="font-size: 0.72rem; margin-bottom: 8px; line-height: 1.3;">Spell words in your spelling language, then translate them to clear rows!</p>
+                            
+                            <div class="setup-grid">
+                                <div class="setup-item">
+                                    <label for="lang-from">SPELL IN</label>
+                                    <select id="lang-from" class="cyber-select">
+                                        <option value="en" selected>English</option>
+                                        <option value="es">Spanish</option>
+                                        <option value="de">German</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="lang-to">TRANSLATE TO</label>
+                                    <select id="lang-to" class="cyber-select">
+                                        <option value="en">English</option>
+                                        <option value="es" selected>Spanish</option>
+                                        <option value="de">German</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="filter-level">LEVEL</label>
+                                    <select id="filter-level" class="cyber-select">
+                                        <option value="all" selected>All Levels</option>
+                                        <option value="beginner">Beginner</option>
+                                        <option value="intermediate">Intermediate</option>
+                                        <option value="advanced">Advanced</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="filter-type">WORD TYPE</label>
+                                    <select id="filter-type" class="cyber-select">
+                                        <option value="all" selected>All Types</option>
+                                        <option value="noun">Nouns</option>
+                                        <option value="verb">Verbs</option>
+                                        <option value="adjective">Adjectives</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item" style="grid-column: span 2;">
+                                    <label for="filter-theme">VOCABULARY THEME</label>
+                                    <select id="filter-theme" class="cyber-select">
+                                        <option value="all" selected>All Themes</option>
+                                        <option value="colors">Colors</option>
+                                        <option value="animals">Animals</option>
+                                        <option value="food">Food</option>
+                                        <option value="home">Home & Items</option>
+                                        <option value="sports">Sports & Actions</option>
+                                        <option value="nature">Nature & Elements</option>
+                                        <option value="body">Body Parts</option>
+                                        <option value="general">General Words</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Dynamic Pre-Game Study Guide -->
+                            <div id="study-guide-box" style="margin-top: 8px; width: 85%; max-height: 100px; overflow-y: auto; background: rgba(0,0,0,0.45); border: 1px dashed rgba(0,240,255,0.25); border-radius: 6px; padding: 6px 10px; font-size: 0.72rem; text-align: left; box-sizing: border-box;">
+                                <div style="font-weight: 700; color: var(--neon-gold); margin-bottom: 4px; text-transform: uppercase; font-family: 'Orbitron', sans-serif; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px;">
+                                    <span>Study Guide</span>
+                                    <span id="study-guide-count" style="font-size: 0.65rem; color: var(--text-secondary); font-family: 'Inter', sans-serif;">0 words</span>
+                                </div>
+                                <div id="study-guide-list" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; color: var(--text-secondary); max-height: 70px;">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
+                            
+                            <button id="start-btn" class="cyber-btn neon-border-magenta" style="margin-top: 8px; width: 85%;">START GAME</button>
+                        </div>
+
+                        <div id="pause-screen" class="overlay-screen">
+                            <h2 class="neon-text-cyan">GAME PAUSED</h2>
+                            <p class="overlay-desc">Press P or Resume to continue spelling</p>
+                            <button id="resume-btn" class="cyber-btn neon-border-cyan">RESUME</button>
+                        </div>
+
+                        <!-- Translation Challenge Screen -->
+                        <div id="challenge-screen" class="overlay-screen">
+                            <h2 class="neon-text-gold" style="font-size: 1.4rem;">TRANSLATE IT!</h2>
+                            <p class="challenge-direction" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; max-width: 240px; margin-bottom: 5px;">
+                                Translate "<span id="challenge-word-source" class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">CASA</span>" into <span id="challenge-target-lang" class="stat-highlight" style="color:var(--neon-cyan)">English</span>:
+                            </p>
+                            
+                            <div style="width: 80%; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+                                <input type="text" id="challenge-input" class="cyber-input" placeholder="Type translation..." autocomplete="off" spellcheck="false" style="width: 100%; padding: 8px 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,240,255,0.3); border-radius: 6px; color: #fff; font-family: 'Inter', sans-serif; text-align: center; outline: none; font-size: 0.95rem; box-shadow: 0 0 10px rgba(0,240,255,0.05);">
+                                
+                                <div id="challenge-feedback" class="challenge-feedback hidden" style="font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase;">
+                                    INCORRECT!
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; width: 80%; justify-content: center; margin-top: 5px;">
+                                <button id="challenge-hint-btn" class="cyber-btn neon-border-cyan" style="padding: 6px 12px; font-size: 0.7rem; flex: 1;">SHOW HINT</button>
+                                <button id="challenge-submit-btn" class="cyber-btn neon-border-magenta" style="padding: 6px 20px; font-size: 0.75rem; flex: 1.5;">SUBMIT</button>
+                            </div>
+                            
+                            <div class="challenge-attempts" style="font-size: 0.75rem; color: var(--text-secondary);">
+                                Attempts left: <span id="challenge-attempts-count" class="stat-highlight" style="color: var(--neon-gold); font-weight: 700;">2</span>
+                            </div>
+                            
+                            <div id="challenge-hint-box" class="challenge-hint-box hidden" style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 0.75rem; color: var(--text-secondary); width: 80%; text-align: center;">
+                                Hint: <span id="challenge-hint-text" style="color: #fff; font-weight: 600; letter-spacing: 1px;"></span>
+                            </div>
+                        </div>
+
+                        <div id="gameover-screen" class="overlay-screen">
+                            <h2 class="neon-text-red">GAME OVER</h2>
+                            <p class="overlay-desc">Your stack hit the ceiling!</p>
+                            <div class="final-stats">
+                                <p>Score: <span id="final-score" class="stat-highlight">0</span></p>
+                                <p>Words Found: <span id="final-words" class="stat-highlight">0</span></p>
+                            </div>
+                            <button id="restart-btn" class="cyber-btn neon-border-gold">PLAY AGAIN</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-controls">
+                    <button id="audio-toggle-btn" class="icon-btn" title="Toggle Sound">
+                        <svg id="sound-icon-on" viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18.07,19.86 21,16.28 21,12C21,7.72 18.07,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z" />
+                        </svg>
+                        <svg id="sound-icon-off" viewBox="0 0 24 24" width="24" height="24" class="hidden">
+                            <path fill="currentColor" d="M12,4L7,9H3V15H7L12,20V4M16.5,12A4.5,4.5 0 0,0 14,7.97V10.18L16.45,12.63C16.48,12.42 16.5,12.21 16.5,12M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12A9,9 0 0,0 14,3.23V5.29C16.89,6.15 19,8.83 19,12M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.44 14,18.64V20.7C15.38,20.44 16.63,19.78 17.68,18.9L20.73,21.95L22,20.68L4.27,3Z" />
+                        </svg>
+                    </button>
+                    <button id="pause-toggle-btn" class="icon-btn" title="Pause Game">
+                        <svg id="pause-icon" viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M14,19H18V5H14M6,19H10V5H6V19Z" />
+                        </svg>
+                        <svg id="play-icon" viewBox="0 0 24 24" width="24" height="24" class="hidden">
+                            <path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Column: Next Piece, Stats and Found Words -->
+            <section class="side-panel right-panel">
+                <div class="panel-card glass-panel" id="next-panel">
+                    <h2 class="panel-title">NEXT</h2>
+                    <div class="canvas-container">
+                        <canvas id="next-canvas" width="100" height="100"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel" id="stats-panel">
+                    <h2 class="panel-title">STATS</h2>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">SCORE</span>
+                            <span id="score-val" class="stat-value neon-text-magenta">000000</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">LEVEL</span>
+                            <span id="level-val" class="stat-value neon-text-cyan">1</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">WORDS FOUND</span>
+                            <span id="words-val" class="stat-value neon-text-gold">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">HIGH SCORE</span>
+                            <span id="high-score-val" class="stat-value">000000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel" id="words-panel">
+                    <h2 class="panel-title">DICTIONARY LOG</h2>
+                    <div class="words-log-container">
+                        <div id="words-log-empty" class="words-log-placeholder">No words spelled yet...</div>
+                        <ul id="words-log-list" class="words-log-list"></ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="game-footer">
+            <p>SpellTris © 2026 • A Word-Building Puzzle Adventure</p>
+        </footer>
+    </div>
+
+    <!-- Alert / Toast for word clears -->
+    <div id="word-alert" class="word-alert-banner hidden">
+        <span id="alert-word-text">WORD!</span>
+        <span id="alert-word-points">+100 PTS</span>
+    </div>
+
+    <!-- Load Game Files -->
+    <script>
+// SpellTris Language Learning Vocabulary Database
+// Curated list of trilingual words (English, Spanish, German)
+// Tagged with levels, grammar types, and themes.
+
+const VOCABULARY = [
+    // --- COLORS ---
+    { en: "blue", es: "azul", de: "blau", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "rose", es: "rosa", de: "rosa", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "grey", es: "gris", de: "grau", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "gray", es: "gris", de: "grau", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "green", es: "verde", de: "grün", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "black", es: "negro", de: "schwarz", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "white", es: "blanco", de: "weiss", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "yellow", es: "amarillo", de: "gelb", level: "intermediate", type: "adjective", theme: "colors" },
+    { en: "brown", es: "marrón", de: "braun", level: "beginner", type: "adjective", theme: "colors" },
+    { en: "orange", es: "naranja", de: "orange", level: "intermediate", type: "adjective", theme: "colors" },
+
+    // --- ANIMALS ---
+    { en: "fish", es: "pez", de: "fisch", level: "beginner", type: "noun", theme: "animals" },
+    { en: "bird", es: "ave", de: "vogel", level: "beginner", type: "noun", theme: "animals" },
+    { en: "frog", es: "rana", de: "frosch", level: "intermediate", type: "noun", theme: "animals" },
+    { en: "wolf", es: "lobo", de: "wolf", level: "intermediate", type: "noun", theme: "animals" },
+    { en: "bear", es: "oso", de: "bär", level: "beginner", type: "noun", theme: "animals" },
+    { en: "duck", es: "pato", de: "ente", level: "beginner", type: "noun", theme: "animals" },
+    { en: "lion", es: "león", de: "löwe", level: "beginner", type: "noun", theme: "animals" },
+    { en: "dog", es: "perro", de: "hund", level: "beginner", type: "noun", theme: "animals" },
+    { en: "cat", es: "gato", de: "katze", level: "beginner", type: "noun", theme: "animals" },
+    { en: "horse", es: "caballo", de: "pferd", level: "beginner", type: "noun", theme: "animals" },
+    { en: "mouse", es: "ratón", de: "maus", level: "beginner", type: "noun", theme: "animals" },
+    { en: "sheep", es: "oveja", de: "schaf", level: "intermediate", type: "noun", theme: "animals" },
+    { en: "snake", es: "serpiente", de: "schlange", level: "intermediate", type: "noun", theme: "animals" },
+    { en: "spider", es: "araña", de: "spinne", level: "intermediate", type: "noun", theme: "animals" },
+    { en: "monkey", es: "mono", de: "affe", level: "intermediate", type: "noun", theme: "animals" },
+
+    // --- FOOD ---
+    { en: "milk", es: "leche", de: "milch", level: "beginner", type: "noun", theme: "food" },
+    { en: "meat", es: "carne", de: "fleisch", level: "beginner", type: "noun", theme: "food" },
+    { en: "beer", es: "cerveza", de: "bier", level: "beginner", type: "noun", theme: "food" },
+    { en: "wine", es: "vino", de: "wein", level: "beginner", type: "noun", theme: "food" },
+    { en: "bread", es: "pan", de: "brot", level: "beginner", type: "noun", theme: "food" },
+    { en: "apple", es: "manzana", de: "apfel", level: "beginner", type: "noun", theme: "food" },
+    { en: "cheese", es: "queso", de: "käse", level: "beginner", type: "noun", theme: "food" },
+    { en: "water", es: "agua", de: "wasser", level: "beginner", type: "noun", theme: "food" },
+    { en: "rice", es: "arroz", de: "reis", level: "beginner", type: "noun", theme: "food" },
+    { en: "salt", es: "sal", de: "salz", level: "beginner", type: "noun", theme: "food" },
+    { en: "soup", es: "sopa", de: "suppe", level: "beginner", type: "noun", theme: "food" },
+    { en: "fruit", es: "fruta", de: "obst", level: "beginner", type: "noun", theme: "food" },
+    { en: "onion", es: "cebolla", de: "zwiebel", level: "intermediate", type: "noun", theme: "food" },
+    { en: "grape", es: "uva", de: "traube", level: "intermediate", type: "noun", theme: "food" },
+
+    // --- HOME ---
+    { en: "home", es: "casa", de: "heim", level: "beginner", type: "noun", theme: "home" },
+    { en: "house", es: "casa", de: "haus", level: "beginner", type: "noun", theme: "home" },
+    { en: "door", es: "puerta", de: "tür", level: "beginner", type: "noun", theme: "home" },
+    { en: "wall", es: "pared", de: "wand", level: "beginner", type: "noun", theme: "home" },
+    { en: "roof", es: "techo", de: "dach", level: "intermediate", type: "noun", theme: "home" },
+    { en: "bed", es: "cama", de: "bett", level: "beginner", type: "noun", theme: "home" },
+    { en: "room", es: "cuarto", de: "zimmer", level: "beginner", type: "noun", theme: "home" },
+    { en: "table", es: "mesa", de: "tisch", level: "beginner", type: "noun", theme: "home" },
+    { en: "chair", es: "silla", de: "stuhl", level: "beginner", type: "noun", theme: "home" },
+    { en: "book", es: "libro", de: "buch", level: "beginner", type: "noun", theme: "home" },
+    { en: "key", es: "llave", de: "schlüssel", level: "beginner", type: "noun", theme: "home" },
+    { en: "lamp", es: "lámpara", de: "lampe", level: "beginner", type: "noun", theme: "home" },
+    { en: "plate", es: "plato", de: "teller", level: "beginner", type: "noun", theme: "home" },
+    { en: "spoon", es: "cuchara", de: "löffel", level: "intermediate", type: "noun", theme: "home" },
+    { en: "knife", es: "cuchillo", de: "messer", level: "intermediate", type: "noun", theme: "home" },
+
+    // --- SPORTS & LEISURE ---
+    { en: "game", es: "juego", de: "spiel", level: "beginner", type: "noun", theme: "sports" },
+    { en: "ball", es: "pelota", de: "ball", level: "beginner", type: "noun", theme: "sports" },
+    { en: "play", es: "jugar", de: "spielen", level: "beginner", type: "verb", theme: "sports" },
+    { en: "swim", es: "nadar", de: "schwimmen", level: "intermediate", type: "verb", theme: "sports" },
+    { en: "run", es: "correr", de: "rennen", level: "beginner", type: "verb", theme: "sports" },
+    { en: "jump", es: "saltar", de: "springen", level: "intermediate", type: "verb", theme: "sports" },
+    { en: "goal", es: "meta", de: "ziel", level: "intermediate", type: "noun", theme: "sports" },
+    { en: "walk", es: "caminar", de: "gehen", level: "beginner", type: "verb", theme: "sports" },
+    { en: "climb", es: "escalar", de: "klettern", level: "advanced", type: "verb", theme: "sports" },
+    { en: "dance", es: "bailar", de: "tanzen", level: "beginner", type: "verb", theme: "sports" },
+    { en: "sport", es: "deporte", de: "sport", level: "beginner", type: "noun", theme: "sports" },
+
+    // --- NATURE ---
+    { en: "wind", es: "viento", de: "wind", level: "beginner", type: "noun", theme: "nature" },
+    { en: "rain", es: "lluvia", de: "regen", level: "beginner", type: "noun", theme: "nature" },
+    { en: "fire", es: "fuego", de: "feuer", level: "beginner", type: "noun", theme: "nature" },
+    { en: "sand", es: "arena", de: "sand", level: "beginner", type: "noun", theme: "nature" },
+    { en: "land", es: "tierra", de: "land", level: "beginner", type: "noun", theme: "nature" },
+    { en: "star", es: "estrella", de: "stern", level: "beginner", type: "noun", theme: "nature" },
+    { en: "tree", es: "árbol", de: "baum", level: "beginner", type: "noun", theme: "nature" },
+    { en: "leaf", es: "hoja", de: "blatt", level: "intermediate", type: "noun", theme: "nature" },
+    { en: "moon", es: "luna", de: "mond", level: "beginner", type: "noun", theme: "nature" },
+    { en: "sun", es: "sol", de: "sonne", level: "beginner", type: "noun", theme: "nature" },
+    { en: "lake", es: "lago", de: "see", level: "beginner", type: "noun", theme: "nature" },
+    { en: "river", es: "río", de: "fluss", level: "intermediate", type: "noun", theme: "nature" },
+    { en: "cloud", es: "nube", de: "wolke", level: "intermediate", type: "noun", theme: "nature" },
+    { en: "stone", es: "piedra", de: "stein", level: "intermediate", type: "noun", theme: "nature" },
+
+    // --- BODY ---
+    { en: "hand", es: "mano", de: "hand", level: "beginner", type: "noun", theme: "body" },
+    { en: "foot", es: "pie", de: "fuss", level: "beginner", type: "noun", theme: "body" },
+    { en: "head", es: "cabeza", de: "kopf", level: "beginner", type: "noun", theme: "body" },
+    { en: "hair", es: "pelo", de: "haar", level: "beginner", type: "noun", theme: "body" },
+    { en: "face", es: "cara", de: "gesicht", level: "intermediate", type: "noun", theme: "body" },
+    { en: "nose", es: "nariz", de: "nase", level: "beginner", type: "noun", theme: "body" },
+    { en: "mouth", es: "boca", de: "mund", level: "beginner", type: "noun", theme: "body" },
+    { en: "heart", es: "corazón", de: "herz", level: "beginner", type: "noun", theme: "body" },
+    { en: "arm", es: "brazo", de: "arm", level: "beginner", type: "noun", theme: "body" },
+    { en: "leg", es: "pierna", de: "bein", level: "beginner", type: "noun", theme: "body" },
+    { en: "body", es: "cuerpo", de: "körper", level: "intermediate", type: "noun", theme: "body" },
+    { en: "finger", es: "dedo", de: "finger", level: "intermediate", type: "noun", theme: "body" },
+
+    // --- GENERAL / EMOTIONS / OTHER ---
+    { en: "love", es: "amor", de: "liebe", level: "beginner", type: "noun", theme: "general" },
+    { en: "time", es: "tiempo", de: "zeit", level: "beginner", type: "noun", theme: "general" },
+    { en: "year", es: "año", de: "jahr", level: "beginner", type: "noun", theme: "general" },
+    { en: "week", es: "semana", de: "woche", level: "beginner", type: "noun", theme: "general" },
+    { en: "life", es: "vida", de: "leben", level: "beginner", type: "noun", theme: "general" },
+    { en: "work", es: "trabajo", de: "arbeit", level: "beginner", type: "noun", theme: "general" },
+    { en: "good", es: "bueno", de: "gut", level: "beginner", type: "adjective", theme: "general" },
+    { en: "bad", es: "malo", de: "schlecht", level: "beginner", type: "adjective", theme: "general" },
+    { en: "cold", es: "frío", de: "kalt", level: "beginner", type: "adjective", theme: "general" },
+    { en: "warm", es: "cálido", de: "warm", level: "beginner", type: "adjective", theme: "general" },
+    { en: "small", es: "pequeño", de: "klein", level: "beginner", type: "adjective", theme: "general" },
+    { en: "large", es: "grande", de: "gross", level: "beginner", type: "adjective", theme: "general" },
+    { en: "with", es: "con", de: "mit", level: "beginner", type: "other", theme: "general" },
+    { en: "under", es: "bajo", de: "unter", level: "intermediate", type: "other", theme: "general" },
+    { en: "over", es: "sobre", de: "über", level: "intermediate", type: "other", theme: "general" },
+    { en: "easy", es: "fácil", de: "einfach", level: "intermediate", type: "adjective", theme: "general" },
+    { en: "hard", es: "difícil", de: "schwer", level: "intermediate", type: "adjective", theme: "general" },
+    { en: "happy", es: "feliz", de: "glücklich", level: "intermediate", type: "adjective", theme: "general" },
+    { en: "sad", es: "triste", de: "traurig", level: "beginner", type: "adjective", theme: "general" }
+];
+
+
 // SpellTris - The Word-Building Tetris Game
 // Core Game Logic, Physics, Word Detection, and Web Audio Synth
 
@@ -1649,3 +2693,7 @@ holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
 
 // Initialize Study Guide on startup
 updateStudyGuide();
+
+</script>
+</body>
+</html>

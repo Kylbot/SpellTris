@@ -53,15 +53,108 @@
                         
                         <!-- Overlay Screens -->
                         <div id="start-screen" class="overlay-screen active">
-                            <h2 class="neon-text-gold">READY TO SPELL?</h2>
-                            <p class="overlay-desc">Form 4-6 letter English words vertically or horizontally to clear rows. Vertical words clear all rows they span!</p>
-                            <button id="start-btn" class="cyber-btn neon-border-magenta">START GAME</button>
+                            <h2 class="neon-text-gold" style="margin-bottom: 2px;">READY TO LEARN?</h2>
+                            <p class="overlay-desc" style="font-size: 0.72rem; margin-bottom: 8px; line-height: 1.3;">Spell words in your spelling language, then translate them to clear rows!</p>
+                            
+                            <div class="setup-grid">
+                                <div class="setup-item">
+                                    <label for="lang-from">SPELL IN</label>
+                                    <select id="lang-from" class="cyber-select">
+                                        <option value="en" selected>English</option>
+                                        <option value="es">Spanish</option>
+                                        <option value="de">German</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="lang-to">TRANSLATE TO</label>
+                                    <select id="lang-to" class="cyber-select">
+                                        <option value="en">English</option>
+                                        <option value="es" selected>Spanish</option>
+                                        <option value="de">German</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="filter-level">LEVEL</label>
+                                    <select id="filter-level" class="cyber-select">
+                                        <option value="all" selected>All Levels</option>
+                                        <option value="beginner">Beginner</option>
+                                        <option value="intermediate">Intermediate</option>
+                                        <option value="advanced">Advanced</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item">
+                                    <label for="filter-type">WORD TYPE</label>
+                                    <select id="filter-type" class="cyber-select">
+                                        <option value="all" selected>All Types</option>
+                                        <option value="noun">Nouns</option>
+                                        <option value="verb">Verbs</option>
+                                        <option value="adjective">Adjectives</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="setup-item" style="grid-column: span 2;">
+                                    <label for="filter-theme">VOCABULARY THEME</label>
+                                    <select id="filter-theme" class="cyber-select">
+                                        <option value="all" selected>All Themes</option>
+                                        <option value="colors">Colors</option>
+                                        <option value="animals">Animals</option>
+                                        <option value="food">Food</option>
+                                        <option value="home">Home & Items</option>
+                                        <option value="sports">Sports & Actions</option>
+                                        <option value="nature">Nature & Elements</option>
+                                        <option value="body">Body Parts</option>
+                                        <option value="general">General Words</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Dynamic Pre-Game Study Guide -->
+                            <div id="study-guide-box" style="margin-top: 8px; width: 85%; max-height: 100px; overflow-y: auto; background: rgba(0,0,0,0.45); border: 1px dashed rgba(0,240,255,0.25); border-radius: 6px; padding: 6px 10px; font-size: 0.72rem; text-align: left; box-sizing: border-box;">
+                                <div style="font-weight: 700; color: var(--neon-gold); margin-bottom: 4px; text-transform: uppercase; font-family: 'Orbitron', sans-serif; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px;">
+                                    <span>Study Guide</span>
+                                    <span id="study-guide-count" style="font-size: 0.65rem; color: var(--text-secondary); font-family: 'Inter', sans-serif;">0 words</span>
+                                </div>
+                                <div id="study-guide-list" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; color: var(--text-secondary); max-height: 70px;">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
+                            
+                            <button id="start-btn" class="cyber-btn neon-border-magenta" style="margin-top: 8px; width: 85%;">START GAME</button>
                         </div>
 
                         <div id="pause-screen" class="overlay-screen">
                             <h2 class="neon-text-cyan">GAME PAUSED</h2>
                             <p class="overlay-desc">Press P or Resume to continue spelling</p>
                             <button id="resume-btn" class="cyber-btn neon-border-cyan">RESUME</button>
+                        </div>
+
+                        <!-- Translation Challenge Screen -->
+                        <div id="challenge-screen" class="overlay-screen">
+                            <h2 class="neon-text-gold" style="font-size: 1.4rem;">TRANSLATE IT!</h2>
+                            <p class="challenge-direction" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; max-width: 240px; margin-bottom: 5px;">
+                                Translate "<span id="challenge-word-source" class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">CASA</span>" into <span id="challenge-target-lang" class="stat-highlight" style="color:var(--neon-cyan)">English</span>:
+                            </p>
+                            
+                            <div style="width: 80%; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+                                <input type="text" id="challenge-input" class="cyber-input" placeholder="Type translation..." autocomplete="off" spellcheck="false" style="width: 100%; padding: 8px 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,240,255,0.3); border-radius: 6px; color: #fff; font-family: 'Inter', sans-serif; text-align: center; outline: none; font-size: 0.95rem; box-shadow: 0 0 10px rgba(0,240,255,0.05);">
+                                
+                                <div id="challenge-feedback" class="challenge-feedback hidden" style="font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase;">
+                                    INCORRECT!
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; width: 80%; justify-content: center; margin-top: 5px;">
+                                <button id="challenge-hint-btn" class="cyber-btn neon-border-cyan" style="padding: 6px 12px; font-size: 0.7rem; flex: 1;">SHOW HINT</button>
+                                <button id="challenge-submit-btn" class="cyber-btn neon-border-magenta" style="padding: 6px 20px; font-size: 0.75rem; flex: 1.5;">SUBMIT</button>
+                            </div>
+                            
+                            <div class="challenge-attempts" style="font-size: 0.75rem; color: var(--text-secondary);">
+                                Attempts left: <span id="challenge-attempts-count" class="stat-highlight" style="color: var(--neon-gold); font-weight: 700;">2</span>
+                            </div>
+                            
+                            <div id="challenge-hint-box" class="challenge-hint-box hidden" style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 0.75rem; color: var(--text-secondary); width: 80%; text-align: center;">
+                                Hint: <span id="challenge-hint-text" style="color: #fff; font-weight: 600; letter-spacing: 1px;"></span>
+                            </div>
                         </div>
 
                         <div id="gameover-screen" class="overlay-screen">
@@ -149,7 +242,7 @@
     </div>
 
     <!-- Load Game Files -->
-    <script src="words.js"></script>
+    <script src="vocab.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

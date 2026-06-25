@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpellTris - Monte Carlo Simulator & AI Testing Suite</title>
+    <meta name="description" content="AI test player and simulation suite for SpellTris. Run Monte Carlo tests, adjust scoring heuristics, tweak game difficulty parameters, and analyze statistics.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Extra styling for the dashboard -->
+    <style>
+        .game-layout {
+            grid-template-columns: 340px 1fr 340px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .control-group-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--neon-cyan);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 4px;
+            margin-bottom: 5px;
+        }
+
+        .slider-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.8rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+        }
+
+        .slider-val {
+            color: var(--text-primary);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            accent-color: var(--neon-cyan);
+            cursor: pointer;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .preset-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn.active, .preset-btn:hover {
+            color: #fff;
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+        }
+
+        /* Simulator Controls */
+        .sim-action-btn {
+            width: 100%;
+            font-size: 0.9rem;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        /* Stats adjustments */
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            display: grid;
+        }
+
+        .stat-item {
+            padding: 6px 10px;
+        }
+
+        .stat-item-full {
+            grid-column: span 2;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+        }
+
+        /* Charts styling */
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .chart-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .chart-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--neon-gold);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            width: 100%;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 4px;
+        }
+
+        .chart-canvas {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            width: 100%;
+            height: 100px;
+        }
+
+        .terminal-log {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 8px;
+            height: 120px;
+            overflow-y: auto;
+            width: 100%;
+            font-size: 0.7rem;
+            color: #00ff66;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-shadow: 0 0 2px rgba(0, 255, 102, 0.3);
+        }
+
+        .terminal-log-empty {
+            color: var(--text-dark);
+            font-style: italic;
+            text-align: center;
+            margin-top: 45px;
+        }
+
+        /* Toggle checkbox */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: rgba(0, 240, 255, 0.2);
+            border-color: var(--neon-cyan);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(16px);
+            background-color: var(--neon-cyan);
+        }
+
+        @media (max-width: 1100px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="glowing-orb orb-1"></div>
+    <div class="glowing-orb orb-2"></div>
+
+    <div class="app-container">
+        <header>
+            <h1 id="game-title" class="neon-text-gold">TEST<span class="neon-text-cyan">PLAYER</span></h1>
+            <p class="subtitle">Monte Carlo Simulator & AI Optimization Suite</p>
+        </header>
+
+        <main class="game-layout">
+            <!-- Left Column: AI Parameters & Config -->
+            <section class="side-panel left-panel">
+                <div class="panel-card glass-panel">
+                    <h2 class="panel-title">PRESETS</h2>
+                    <div class="preset-buttons">
+                        <button id="preset-spacesaver" class="preset-btn active">SPACE SAVER</button>
+                        <button id="preset-wordhunter" class="preset-btn">WORD HUNTER</button>
+                        <button id="preset-balanced" class="preset-btn">HYBRID</button>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel">
+                    <h2 class="panel-title">AI DECISION WEIGHTS</h2>
+                    
+                    <div class="control-group">
+                        <div class="control-group-title">Space-Saving</div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Holes Penalty</span>
+                                <span id="weight-hole-val" class="slider-val">-8.0</span>
+                            </div>
+                            <input type="range" id="weight-hole" min="-20" max="0" step="0.5" value="-8.0">
+                        </div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Bumpiness Penalty</span>
+                                <span id="weight-bump-val" class="slider-val">-1.5</span>
+                            </div>
+                            <input type="range" id="weight-bump" min="-5" max="0" step="0.1" value="-1.5">
+                        </div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Height Penalty</span>
+                                <span id="weight-height-val" class="slider-val">-1.0</span>
+                            </div>
+                            <input type="range" id="weight-height" min="-5" max="0" step="0.1" value="-1.0">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-group-title">Word Completion</div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Word Spelled Reward</span>
+                                <span id="weight-word-val" class="slider-val">0.0</span>
+                            </div>
+                            <input type="range" id="weight-word" min="0" max="25" step="0.5" value="0.0">
+                        </div>
+                        <div class="toggle-container">
+                            <span>2-Step Lookahead (AI Next Piece)</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="ai-lookahead" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel">
+                    <h2 class="panel-title">GAME TWEAKS (DIFFICULTY)</h2>
+                    
+                    <div class="control-group">
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Board Width</span>
+                                <span id="param-width-val" class="slider-val">10</span>
+                            </div>
+                            <input type="range" id="param-width" min="8" max="12" step="1" value="10">
+                        </div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Vowel Ratio (in Bag)</span>
+                                <span id="param-vowel-val" class="slider-val">45%</span>
+                            </div>
+                            <input type="range" id="param-vowel" min="25" max="65" step="5" value="45">
+                        </div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Vowel Guarantee / Piece</span>
+                                <span id="param-vowel-guar-val" class="slider-val">1 Vowel</span>
+                            </div>
+                            <input type="range" id="param-vowel-guar" min="0" max="2" step="1" value="1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center Column: Visualizer & Sim Control -->
+            <section class="center-panel">
+                <div class="board-wrapper glass-panel" style="border-color: var(--neon-gold); box-shadow: 0 0 25px rgba(255, 183, 0, 0.15);">
+                    <div class="canvas-container main-board-container" style="background: rgba(0,0,0,0.6);">
+                        <canvas id="game-canvas" width="300" height="600"></canvas>
+                        
+                        <!-- Overlay overlay screen for sim startup -->
+                        <div id="start-screen" class="overlay-screen active">
+                            <h2 class="neon-text-gold">AI SIMULATION</h2>
+                            <p class="overlay-desc">Configure heuristic weights and game parameters, then start the Monte Carlo solver to run batch trials.</p>
+                            <button id="start-btn" class="cyber-btn neon-border-gold">START SIMULATION</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group glass-panel" style="padding: 16px; gap: 12px;">
+                    <div class="control-group-title" style="color: var(--neon-gold)">SIMULATION PARAMETERS</div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Speed</span>
+                                <span id="sim-speed-val" class="slider-val">Fast (20ms)</span>
+                            </div>
+                            <input type="range" id="sim-speed" min="0" max="500" step="10" value="20">
+                        </div>
+                        <div class="slider-item">
+                            <div class="slider-header">
+                                <span>Batch Size</span>
+                                <span id="sim-batch-val" class="slider-val">10 Games</span>
+                            </div>
+                            <input type="range" id="sim-batch" min="1" max="50" step="1" value="10">
+                        </div>
+                    </div>
+
+                    <div class="toggle-container" style="margin-top: 5px; margin-bottom: 5px;">
+                        <span>Pause on Word Spell</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sim-pause-on-word">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button id="sim-run-btn" class="cyber-btn neon-border-cyan" style="flex: 2;">RUN BATCH</button>
+                        <button id="sim-stop-btn" class="cyber-btn neon-border-red" style="flex: 1; border-color: var(--neon-red);" disabled>STOP</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Statistics & Graphing -->
+            <section class="side-panel right-panel">
+                <div class="panel-card glass-panel" id="stats-panel">
+                    <h2 class="panel-title">SIMULATION METRICS</h2>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">TRIALS COMPLETED</span>
+                            <span id="stat-completed" class="stat-value neon-text-cyan">0 / 0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">AVG SCORE</span>
+                            <span id="stat-avg-score" class="stat-value neon-text-magenta">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">AVG MOVES</span>
+                            <span id="stat-avg-moves" class="stat-value neon-text-gold">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">AVG WORDS / GAME</span>
+                            <span id="stat-avg-words" class="stat-value neon-text-green">0</span>
+                        </div>
+                        <div class="stat-item stat-item-full">
+                            <span class="stat-label">MAX SURVIVAL (MOVES)</span>
+                            <span id="stat-max-moves" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel">
+                    <h2 class="panel-title">MONTE CARLO CHARTS</h2>
+                    <div class="charts-container">
+                        <div class="chart-card">
+                            <div class="chart-title">Survival (Moves Played)</div>
+                            <canvas id="chart-survival" class="chart-canvas" width="300" height="100"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">Words Found Distribution</div>
+                            <canvas id="chart-words" class="chart-canvas" width="300" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card glass-panel" style="flex-grow: 1;">
+                    <h2 class="panel-title">SIMULATOR TERMINAL LOG</h2>
+                    <div id="sim-terminal" class="terminal-log">
+                        <div class="terminal-log-empty">Terminal ready. Click RUN BATCH to start testing...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="game-footer">
+            <p>SpellTris Monte Carlo Suite © 2026</p>
+        </footer>
+    </div>
+
+    <!-- Hidden elements required by words.js/game.js interface but not shown here -->
+    <div class="hidden">
+        <canvas id="next-canvas" width="1" height="1"></canvas>
+        <canvas id="hold-canvas" width="1" height="1"></canvas>
+        <span id="score-val">0</span>
+        <span id="level-val">1</span>
+        <span id="words-val">0</span>
+        <span id="high-score-val">0</span>
+        <div id="words-log-empty"></div>
+        <ul id="words-log-list"></ul>
+        <div id="word-alert"></div>
+        <span id="alert-word-text"></span>
+        <span id="alert-word-points"></span>
+    </div>
+
+    <!-- Load scripts -->
+    <script src="words.js"></script>
+    <script src="test_player.js"></script>
+</body>
+</html>
