@@ -415,57 +415,38 @@ function drawLetter() {
 }
 
 function generatePieceLetters() {
-    const letters = [];
-    let vowelCount = 0;
-    let rareCount = 0;
+    let letters = [];
     
-    // Draw 4 letters
-    for (let i = 0; i < 4; i++) {
-        let letter = drawLetter();
+    if (DICTIONARY.size > 0) {
+        // Convert DICTIONARY Set to Array for random selection
+        const dictArray = Array.from(DICTIONARY);
+        const randomWord = dictArray[Math.floor(Math.random() * dictArray.length)]; // e.g. "SCHLANGE"
         
-        // Count vowels and rares in active set
-        if (activeVowels.has(letter)) vowelCount++;
-        if (activeRares.has(letter)) rareCount++;
-        
-        letters.push(letter);
-    }
-    
-    // Vowel Guarantee: Ensure at least 1 vowel is present (if active words have vowels)
-    if (vowelCount === 0 && activeVowels.size > 0) {
-        const vowelArray = Array.from(activeVowels);
-        const randomVowel = vowelArray[Math.floor(Math.random() * vowelArray.length)];
-        // Replace a non-rare letter or random letter with a vowel
-        const replaceIdx = letters.findIndex(l => !activeRares.has(l)) !== -1 ? 
-                           letters.findIndex(l => !activeRares.has(l)) : 0;
-        letters[replaceIdx] = randomVowel;
-    }
-    
-    // Rare Limit Guarantee: Ensure at most 1 rare letter (if active words have rares)
-    if (rareCount > 1 && activeRares.size > 0) {
-        let replacedRare = false;
-        for (let i = 0; i < letters.length; i++) {
-            if (activeRares.has(letters[i])) {
-                if (replacedRare) {
-                    // Find a common consonant in active words
-                    const activeConsonants = [];
-                    DICTIONARY.forEach(word => {
-                        for (let j = 0; j < word.length; j++) {
-                            const ch = word[j].toUpperCase();
-                            if (!activeVowels.has(ch) && !activeRares.has(ch)) {
-                                activeConsonants.push(ch);
-                            }
-                        }
-                    });
-                    
-                    if (activeConsonants.length > 0) {
-                        letters[i] = activeConsonants[Math.floor(Math.random() * activeConsonants.length)];
-                    } else {
-                        letters[i] = drawLetter();
-                    }
-                } else {
-                    replacedRare = true; // Keep the first rare letter
-                }
+        if (randomWord.length === 4) {
+            // Azul -> ['A', 'Z', 'U', 'L']
+            letters = randomWord.split('');
+        } else if (randomWord.length > 4) {
+            // Pick a random 4-letter contiguous segment
+            const maxStart = randomWord.length - 4;
+            const startIdx = Math.floor(Math.random() * (maxStart + 1));
+            letters = randomWord.substring(startIdx, startIdx + 4).split('');
+        } else {
+            // Word is shorter than 4 (2 or 3 letters)
+            letters = randomWord.split('');
+            // Fill remaining spots from the letter bag
+            while (letters.length < 4) {
+                letters.push(drawLetter());
             }
+        }
+        
+        // Randomly reverse the letters with 30% chance to allow backward spelling variations
+        if (Math.random() < 0.3) {
+            letters.reverse();
+        }
+    } else {
+        // Fallback: draw 4 letters from letter bag
+        for (let i = 0; i < 4; i++) {
+            letters.push(drawLetter());
         }
     }
     
@@ -1064,16 +1045,17 @@ function displayWordAlerts(words) {
 function spawnNextPiece() {
     hasHeld = false;
     
+    const onlyEasy = document.getElementById('only-easy-pieces').checked;
+    const piecePool = onlyEasy ? ['I', 'O'] : Object.keys(TETROMINOES);
+    
     if (nextPiece === null) {
-        const keys = Object.keys(TETROMINOES);
-        const randType = keys[Math.floor(Math.random() * keys.length)];
+        const randType = piecePool[Math.floor(Math.random() * piecePool.length)];
         nextPiece = createPiece(randType);
     }
     
     currentPiece = nextPiece;
     
-    const keys = Object.keys(TETROMINOES);
-    const randType = keys[Math.floor(Math.random() * keys.length)];
+    const randType = piecePool[Math.floor(Math.random() * piecePool.length)];
     nextPiece = createPiece(randType);
     
     // Check game over
@@ -1414,7 +1396,7 @@ function startGame() {
     
     setupVocabulary();
     if (DICTIONARY.size === 0) {
-        alert("No vocabulary words match your selected filters (Level, Word Type, Theme) and are between 4 and 6 letters in the spelling language. Please choose different settings.");
+        alert("No vocabulary words match your selected filters (Level, Word Type, Theme) and are between 2 and 8 letters in the spelling language. Please choose different settings.");
         startScreen.classList.add('active');
         return;
     }
@@ -1434,6 +1416,25 @@ function startGame() {
     // Clear list
     wordsLogList.innerHTML = '';
     wordsLogEmpty.classList.remove('hidden');
+    
+    // Populate active spelling bank list during play if option is checked
+    const showSpellingBank = document.getElementById('show-spelling-bank').checked;
+    const activeWordsPanel = document.getElementById('active-words-panel');
+    const activeWordsList = document.getElementById('active-words-list');
+    
+    if (showSpellingBank) {
+        activeWordsPanel.classList.remove('hidden');
+        activeWordsList.innerHTML = '';
+        Array.from(DICTIONARY).sort().forEach(word => {
+            const li = document.createElement('li');
+            li.textContent = word.toLowerCase();
+            li.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+            li.style.padding = '2px';
+            activeWordsList.appendChild(li);
+        });
+    } else {
+        activeWordsPanel.classList.add('hidden');
+    }
     
     refillLetterBag();
     updateHUD();
@@ -1457,6 +1458,9 @@ function gameOver() {
     finalScoreSpan.textContent = score;
     finalWordsSpan.textContent = wordsFoundCount;
     gameoverScreen.classList.add('active');
+    
+    // Hide active words panel when game is over
+    document.getElementById('active-words-panel').classList.add('hidden');
 }
 
 function pauseGame() {

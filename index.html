@@ -43,6 +43,16 @@
                         <li><span class="key">P</span> / <span class="key">Esc</span> : Pause</li>
                     </ul>
                 </div>
+
+                <!-- Dynamic Active Words List during play -->
+                <div class="panel-card glass-panel hidden" id="active-words-panel" style="margin-top: 15px;">
+                    <h2 class="panel-title">SPELLING BANK</h2>
+                    <div style="max-height: 120px; overflow-y: auto; padding: 4px;">
+                        <ul id="active-words-list" style="list-style: none; padding: 0; margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;">
+                            <!-- Populated at start -->
+                        </ul>
+                    </div>
+                </div>
             </section>
 
             <!-- Center Column: Main Game Grid -->
@@ -105,6 +115,14 @@
                                         <option value="body">Body Parts</option>
                                         <option value="general">General Words</option>
                                     </select>
+                                </div>
+                                <div class="setup-item" style="grid-column: span 2; display: flex; align-items: center; gap: 8px; justify-content: flex-start; margin-top: 4px;">
+                                    <input type="checkbox" id="show-spelling-bank" style="accent-color: var(--neon-magenta); width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="show-spelling-bank" style="font-size: 0.72rem; cursor: pointer; color: var(--text-secondary); text-transform: uppercase;">Show Spelling Bank During Play</label>
+                                </div>
+                                <div class="setup-item" style="grid-column: span 2; display: flex; align-items: center; gap: 8px; justify-content: flex-start; margin-top: 2px; margin-bottom: 4px;">
+                                    <input type="checkbox" id="only-easy-pieces" style="accent-color: var(--neon-cyan); width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="only-easy-pieces" style="font-size: 0.72rem; cursor: pointer; color: var(--text-secondary); text-transform: uppercase;">Use Straight & Square Pieces Only</label>
                                 </div>
                             </div>
                             
