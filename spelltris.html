@@ -1323,6 +1323,7 @@ let hasHeld = false;
 let gameState = 'START'; // START, PLAYING, PAUSED, ANIMATING, GAMEOVER, CHALLENGING, COUNTDOWN
 let spelledWordsSet = new Set(); // Track spelled words for Learning Mode
 let learningMode = false;        // Track if Learning Mode is enabled
+let challengeResolutionState = null; // 'LEARNING', 'SUCCESS', 'FAILURE'
 let isMuted = false;
 let dropCounter = 0;
 let dropInterval = 1000; // ms
@@ -1902,6 +1903,7 @@ function processTurnEnd() {
         const isNewWordInLearningMode = learningMode && !spelledWordsSet.has(currentChallengeWord.toUpperCase());
         
         if (isNewWordInLearningMode) {
+            challengeResolutionState = 'LEARNING';
             challengeTitle.textContent = "NEW WORD SPELLED!";
             challengeDesc.innerHTML = `Spelled "<span class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">${currentChallengeWord.toUpperCase()}</span>" (${LANG_NAMES[langFrom]}):`;
             
@@ -1913,6 +1915,7 @@ function processTurnEnd() {
             challengeLearnInfo.classList.remove('hidden');
             challengeLearnDefinition.textContent = targetTranslations[0] ? targetTranslations[0].toUpperCase() : '';
         } else {
+            challengeResolutionState = null;
             challengeTitle.textContent = "TRANSLATE IT!";
             challengeDesc.innerHTML = `Translate "<span id="challenge-word-source" class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">${currentChallengeWord.toUpperCase()}</span>" into <span id="challenge-target-lang" class="stat-highlight" style="color:var(--neon-cyan)">${LANG_NAMES[langTo]}</span>:`;
             
@@ -1939,10 +1942,16 @@ function processTurnEnd() {
         
         document.getElementById('challenge-screen').classList.add('active');
         
-        // Focus the input box
-        setTimeout(() => {
+        if (!isNewWordInLearningMode) {
+            const inputEl = document.getElementById('challenge-input');
             inputEl.focus();
-        }, 100);
+            setTimeout(() => {
+                inputEl.focus();
+            }, 10);
+            setTimeout(() => {
+                inputEl.focus();
+            }, 50);
+        }
         
         // Keep the render loop going
         lastTime = performance.now();
@@ -1984,44 +1993,20 @@ function submitTranslation() {
     const isCorrect = targetTranslations.some(t => normalizeText(t) === normalizedUser);
 
     if (isCorrect) {
-        // SUCCESS CASE
-        // 1. Hide challenge screen
-        document.getElementById('challenge-screen').classList.remove('active');
+        // SUCCESS CASE: Show success confirmation card
+        challengeResolutionState = 'SUCCESS';
         
-        // 2. Play success chime and trigger clearing animation
-        gameState = 'ANIMATING';
+        challengeTitle.textContent = "CORRECT!";
+        challengeDesc.innerHTML = `"${currentChallengeWord.toUpperCase()}" translates to <span class="stat-highlight" style="color:var(--neon-green)">${userVal.toUpperCase()}</span>.`;
         
-        // Mark challenged cells for highlight animation
-        clearingWords = [currentChallengeWordObj];
-        clearingRowsSet = challengeRowsToClear;
+        challengeQuizForm.classList.add('hidden');
+        challengeQuizButtons.classList.add('hidden');
+        challengeAttempts.classList.add('hidden');
+        challengeHintBox.classList.add('hidden');
         
-        challengeWordCells.forEach(cell => {
-            if (grid[cell.y][cell.x]) {
-                grid[cell.y][cell.x].highlight = true;
-            }
-        });
+        challengeLearnInfo.classList.remove('hidden');
+        challengeLearnDefinition.textContent = "SUCCESS! WELL DONE.";
         
-        playWordClearedSound(comboCount);
-        
-        // Spawn particles
-        challengeWordCells.forEach(cell => {
-            const px = cell.x * BLOCK_SIZE + BLOCK_SIZE / 2;
-            const py = cell.y * BLOCK_SIZE + BLOCK_SIZE / 2;
-            const blockColor = grid[cell.y][cell.x] ? grid[cell.y][cell.x].color : COLORS['J'];
-            spawnParticles(px, py, blockColor);
-        });
-        
-        // Display toast alerts
-        displayWordAlerts([currentChallengeWordObj]);
-        
-        // Add spelled word to set
-        spelledWordsSet.add(currentChallengeWord.toUpperCase());
-        
-        // Trigger actual row removal after highlight delay
-        setTimeout(() => {
-            clearRowsAndDropBlocks();
-        }, 600);
-
     } else {
         // INCORRECT CASE
         challengeAttemptsLeft--;
@@ -2042,43 +2027,33 @@ function submitTranslation() {
             inputEl.focus();
             inputEl.select();
         } else {
-            // Second failure: show correct answer and solidify
-            feedbackEl.textContent = "FAILED!";
-            feedbackEl.className = "challenge-feedback incorrect";
-            feedbackEl.classList.remove('hidden');
-
-            // Show a red warning toast/alert with the correct answer
-            const correctTranslation = targetTranslations[0] || "";
+            // Second failure: show correct answer card
+            challengeResolutionState = 'FAILURE';
             
+            challengeTitle.textContent = "FAILED!";
+            challengeDesc.innerHTML = `No attempts left for "${currentChallengeWord.toUpperCase()}".`;
+            
+            challengeQuizForm.classList.add('hidden');
+            challengeQuizButtons.classList.add('hidden');
+            challengeAttempts.classList.add('hidden');
+            challengeHintBox.classList.add('hidden');
+            
+            challengeLearnInfo.classList.remove('hidden');
+            const correctTranslation = targetTranslations[0] || "";
+            challengeLearnDefinition.textContent = `Correct translation: ${correctTranslation.toUpperCase()}`;
+            
+            // Show a red warning toast/alert with the correct answer
             alertWordText.textContent = `INCORRECT. ANSWER: ${correctTranslation.toUpperCase()}`;
             alertWordPoints.textContent = `NO POINTS - BLOCKS SOLIDIFIED`;
             wordAlert.style.background = 'rgba(255, 42, 42, 0.9)';
             wordAlert.style.border = '2px solid #ff2a2a';
             wordAlert.classList.add('active');
 
-            // Hide challenge screen and clear input/hints after a delay
             setTimeout(() => {
                 wordAlert.classList.remove('active');
                 wordAlert.style.background = '';
                 wordAlert.style.border = '';
             }, 2500);
-
-            // Solidify blocks: this means we do NOT clear the rows, but reset highlights and spawn next piece
-            document.getElementById('challenge-screen').classList.remove('active');
-            
-            // Remove highlights
-            challengeWordCells.forEach(cell => {
-                if (grid[cell.y][cell.x]) {
-                    grid[cell.y][cell.x].highlight = false;
-                }
-            });
-
-            // Resumes play after countdown
-            startCountdown(() => {
-                comboCount = 0;
-                gameState = 'PLAYING';
-                spawnNextPiece();
-            });
         }
     }
 }
@@ -2653,7 +2628,7 @@ function adjustColorBrightness(hex, percent) {
 function startCountdown(callback) {
     gameState = 'COUNTDOWN';
     countdownScreen.classList.add('active');
-    let count = 3;
+    let count = 1;
     countdownText.textContent = count;
     playSound([330], 'sine', 0.15, 0.1);
     
@@ -2701,35 +2676,51 @@ function quitToMenu() {
     updateStudyGuide();
 }
 
-function handleLearningContinue() {
+function handleChallengeContinue() {
     document.getElementById('challenge-screen').classList.remove('active');
-    gameState = 'ANIMATING';
     
-    clearingWords = [currentChallengeWordObj];
-    clearingRowsSet = challengeRowsToClear;
-    
-    challengeWordCells.forEach(cell => {
-        if (grid[cell.y][cell.x]) {
-            grid[cell.y][cell.x].highlight = true;
-        }
-    });
-    
-    playWordClearedSound(comboCount);
-    
-    challengeWordCells.forEach(cell => {
-        const px = cell.x * BLOCK_SIZE + BLOCK_SIZE / 2;
-        const py = cell.y * BLOCK_SIZE + BLOCK_SIZE / 2;
-        const blockColor = grid[cell.y][cell.x] ? grid[cell.y][cell.x].color : COLORS['J'];
-        spawnParticles(px, py, blockColor);
-    });
-    
-    displayWordAlerts([currentChallengeWordObj]);
-    
-    spelledWordsSet.add(currentChallengeWord.toUpperCase());
-    
-    setTimeout(() => {
-        clearRowsAndDropBlocks();
-    }, 600);
+    if (challengeResolutionState === 'LEARNING' || challengeResolutionState === 'SUCCESS') {
+        gameState = 'ANIMATING';
+        
+        clearingWords = [currentChallengeWordObj];
+        clearingRowsSet = challengeRowsToClear;
+        
+        challengeWordCells.forEach(cell => {
+            if (grid[cell.y][cell.x]) {
+                grid[cell.y][cell.x].highlight = true;
+            }
+        });
+        
+        playWordClearedSound(comboCount);
+        
+        challengeWordCells.forEach(cell => {
+            const px = cell.x * BLOCK_SIZE + BLOCK_SIZE / 2;
+            const py = cell.y * BLOCK_SIZE + BLOCK_SIZE / 2;
+            const blockColor = grid[cell.y][cell.x] ? grid[cell.y][cell.x].color : COLORS['J'];
+            spawnParticles(px, py, blockColor);
+        });
+        
+        displayWordAlerts([currentChallengeWordObj]);
+        
+        spelledWordsSet.add(currentChallengeWord.toUpperCase());
+        
+        setTimeout(() => {
+            clearRowsAndDropBlocks();
+        }, 600);
+        
+    } else if (challengeResolutionState === 'FAILURE') {
+        challengeWordCells.forEach(cell => {
+            if (grid[cell.y][cell.x]) {
+                grid[cell.y][cell.x].highlight = false;
+            }
+        });
+        
+        startCountdown(() => {
+            comboCount = 0;
+            gameState = 'PLAYING';
+            spawnNextPiece();
+        });
+    }
 }
 
 // --- GAME FLOW ---
@@ -2892,6 +2883,15 @@ const KEY_MAP = {
 };
 
 document.addEventListener('keydown', event => {
+    // Support Enter key to continue when learning card, success card, or failure card is shown
+    if (gameState === 'CHALLENGING' && !challengeLearnInfo.classList.contains('hidden')) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            handleChallengeContinue();
+            return;
+        }
+    }
+
     // If typing in an input or select element, do not intercept keystrokes for game controls
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.tagName === 'TEXTAREA') {
         return;
@@ -2937,7 +2937,7 @@ gameoverQuitBtn.addEventListener('click', () => {
 });
 
 challengeLearnContinueBtn.addEventListener('click', () => {
-    handleLearningContinue();
+    handleChallengeContinue();
 });
 
 // --- CHALLENGE MODAL LISTENERS ---
