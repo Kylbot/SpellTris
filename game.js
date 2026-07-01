@@ -1,10 +1,80 @@
-// SpellTris - The Word-Building Tetris Game
-// Core Game Logic, Physics, Word Detection, and Web Audio Synth
+/**
+ * =========================================================================
+ *                           SPELLTRIS GAME ENGINE
+ * =========================================================================
+ * 
+ * PROGRAM STRUCTURE:
+ * 1. GAME CONFIG & CONSTANTS: Grid dimensions, block sizes, color definitions,
+ *    and shaped piece matrices.
+ * 2. AUDIO SYNTHESIZER: Web Audio API integration for real-time chord synthesis
+ *    and sound effects (rotations, clearances, hold mechanics).
+ * 3. LANGUAGE LEARNING DATA LAYOUT: Filtering vocabulary banks based on setup
+ *    criteria, generating dictionaries, and rendering pre-game study guides.
+ * 4. SPELLING DICTIONARY ENGINE: Frequencies extraction, letter bags generation,
+ *    segment-based piece generation, and board-wide dictionary clearances.
+ * 5. CORE GAMEPLAY INTERACTIVE SYSTEMS: Locking pieces, processing matches,
+ *    triggering challenges (with hints and attempts), cascading dropping blocks,
+ *    and checking Game Over constraints.
+ * 6. USER INPUT & PIECE MANIPULATION: Game play action mappings (left/right/down/
+ *    harddrop/rotate/hold), cyclic letter shifting, and letter mirroring.
+ * 7. RENDER ENGINE: 2D Canvas rendering of board grids, glowing blocks, ghost projection
+ *    ghost lines, visual feedback, hold/next preview panes, and scoring updates.
+ * 8. GAME FLOW CONTROLLER: Game loops, pauses, resumptions, countdown overlays,
+ *    main menu exits, and setup configurations.
+ * 
+ * FUNCTION SUMMARY AND PURPOSES:
+ * - initAudio(): Initializes the Web Audio API context for sound synthesis.
+ * - playSound(freqs, type, duration, gainStart, ramp): Synthesizes chords or beeps dynamically.
+ * - playMoveSound(), playRotateSound(), playHoldSound(), playLandSound(): Gameplay sound helpers.
+ * - playWordClearedSound(combo): Play special success chord progression scaled by combo multiplier.
+ * - playGameOverSound(): Synthesizes a descending game-over melody.
+ * - normalizeText(str): Standardizes strings for case/accent-insensitive comparisons.
+ * - setupVocabulary(): Configures vocabulary filters and maps for selected languages.
+ * - updateStudyGuide(): Generates and renders the list of active spelling dictionary words.
+ * - refillLetterBag(): Constructs a pool of letters proportional to active dictionary frequencies.
+ * - drawLetter(): Picks a letter from the letter bag, refilling it if empty.
+ * - generatePieceLetters(): Extracts contiguous letter segments from dictionary words.
+ * - createPiece(type): Spawns a tetromino object with styled letters and coordinates.
+ * - rotatePieceClockwise(matrix): Rotates the block matrix clockwise.
+ * - checkCollision(matrix, px, py): Verifies if a piece placement hits border boundaries or static blocks.
+ * - mergePiece(): Seals the current falling piece into the permanent grid map.
+ * - scanForWords(): Scans the grid horizontally and vertically for valid dictionary words.
+ * - clearWordNormally(wordObj, rowsToClear): Directly clears rows for untranslated matches.
+ * - processTurnEnd(): Handles cascading scans, clearing sequences, or triggers translation challenges.
+ * - showChallengeHint(): Displays translation hint (first character and length).
+ * - submitTranslation(): Validates challenge answers, deducts attempts, or schedules clearing/solidifying.
+ * - clearRowsAndDropBlocks(): Computes scored values, clears filled grid rows, and cascades block cells.
+ * - spawnParticles(x, y, color): Launches particle coordinates for cell explosion animations.
+ * - updateAndDrawParticles(ctx): Drives physics and renders grid clearing explosions.
+ * - updateHUD(): Updates HUD statistics (score, level, words count).
+ * - addWordToLog(word, points): Appends successfully spelled words to the Dictionary Log.
+ * - displayWordAlerts(words): Triggers incorrect alert toasts or neon points banners.
+ * - spawnNextPiece(): Dequeues the next tetromino and updates current positions.
+ * - holdCurrentPiece(): Places current piece in hold slot or swaps with already held piece.
+ * - playerMove(dir), playerRotate(), playerDrop(), playerHardDrop(): Input key actions.
+ * - lockPiece(): Locks piece, triggers landing chimes, and initializes cascade evaluations.
+ * - shiftPieceLetters(): Cyclically rotates the sequence of letters within falling block cells.
+ * - flipPieceLettersHorizontal(): Reverses the letter sequence layout horizontally inside the active block.
+ * - startCountdown(callback): Intercepts resuming gameplay with a visual 3, 2, 1 overlay.
+ * - quitToMenu(): Resets gameplay parameters and returns the viewport to the start screen.
+ * - drawBlock(ctx, x, y, letterInfo, size): Renders a single neon-styled cell with its letter.
+ * - drawBoard(): Renders the main board grid, locked blocks, active block, ghost piece, and particles.
+ * - drawNext(), drawHold(): Renders the small preview panels for held and upcoming blocks.
+ * - getPieceBounds(matrix): Computes bounding box dimensions of a piece matrix.
+ * - roundRect(ctx, x, y, w, h, r): Helper to draw rounded rectangle shapes.
+ * - adjustColorBrightness(hex, percent): Utility to blend color channels.
+ * - startGame(): Resets grid metrics, configures language settings, and starts the gameplay loops.
+ * - gameOver(): Transitions game loop state to GAMEOVER and reveals stats overlay.
+ * - pauseGame(), resumeGame(), togglePause(), toggleAudio(): Controls state toggles.
+ * - updateLoop(time): The primary game animation frame update dispatcher.
+ * - handleLanguageChange(changedSelect): Validates select combinations.
+ * =========================================================================
+ */
 
 // --- GAME CONFIG & CONSTANTS ---
 const COLS = 10;
 const ROWS = 20;
-const BLOCK_SIZE = 30; // pixels
+const BLOCK_SIZE = 35; // pixels
 
 // Colors for tetrominoes (Neon theme)
 const COLORS = {
@@ -140,6 +210,21 @@ const wordAlert = document.getElementById('word-alert');
 const alertWordText = document.getElementById('alert-word-text');
 const alertWordPoints = document.getElementById('alert-word-points');
 
+// New DOM Elements
+const pauseQuitBtn = document.getElementById('pause-quit-btn');
+const gameoverQuitBtn = document.getElementById('gameover-quit-btn');
+const countdownScreen = document.getElementById('countdown-screen');
+const countdownText = document.getElementById('countdown-text');
+const challengeLearnInfo = document.getElementById('challenge-learn-info');
+const challengeLearnDefinition = document.getElementById('challenge-learn-definition');
+const challengeLearnContinueBtn = document.getElementById('challenge-learn-continue-btn');
+const challengeQuizForm = document.getElementById('challenge-quiz-form');
+const challengeQuizButtons = document.getElementById('challenge-quiz-buttons');
+const challengeAttempts = document.getElementById('challenge-attempts');
+const challengeHintBox = document.getElementById('challenge-hint-box');
+const challengeTitle = document.getElementById('challenge-title');
+const challengeDesc = document.getElementById('challenge-desc');
+
 // --- GAME STATE ---
 let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 let score = 0;
@@ -152,7 +237,9 @@ let currentPiece = null;
 let nextPiece = null;
 let heldPiece = null;
 let hasHeld = false;
-let gameState = 'START'; // START, PLAYING, PAUSED, ANIMATING, GAMEOVER, CHALLENGING
+let gameState = 'START'; // START, PLAYING, PAUSED, ANIMATING, GAMEOVER, CHALLENGING, COUNTDOWN
+let spelledWordsSet = new Set(); // Track spelled words for Learning Mode
+let learningMode = false;        // Track if Learning Mode is enabled
 let isMuted = false;
 let dropCounter = 0;
 let dropInterval = 1000; // ms
@@ -728,23 +815,44 @@ function processTurnEnd() {
             }
         });
         
-        // Populate and display challenge modal
-        document.getElementById('challenge-word-source').textContent = currentChallengeWord.toUpperCase();
-        document.getElementById('challenge-target-lang').textContent = LANG_NAMES[langTo] || 'Target Language';
+        // Populate and display challenge modal / learning mode card
+        const isNewWordInLearningMode = learningMode && !spelledWordsSet.has(currentChallengeWord.toUpperCase());
         
-        const inputEl = document.getElementById('challenge-input');
-        inputEl.value = '';
-        
-        const feedbackEl = document.getElementById('challenge-feedback');
-        feedbackEl.classList.add('hidden');
-        feedbackEl.textContent = '';
-        feedbackEl.className = 'challenge-feedback hidden';
-        
-        const attemptsCountEl = document.getElementById('challenge-attempts-count');
-        attemptsCountEl.textContent = challengeAttemptsLeft;
-        
-        const hintBoxEl = document.getElementById('challenge-hint-box');
-        hintBoxEl.classList.add('hidden');
+        if (isNewWordInLearningMode) {
+            challengeTitle.textContent = "NEW WORD SPELLED!";
+            challengeDesc.innerHTML = `Spelled "<span class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">${currentChallengeWord.toUpperCase()}</span>" (${LANG_NAMES[langFrom]}):`;
+            
+            challengeQuizForm.classList.add('hidden');
+            challengeQuizButtons.classList.add('hidden');
+            challengeAttempts.classList.add('hidden');
+            challengeHintBox.classList.add('hidden');
+            
+            challengeLearnInfo.classList.remove('hidden');
+            challengeLearnDefinition.textContent = targetTranslations[0] ? targetTranslations[0].toUpperCase() : '';
+        } else {
+            challengeTitle.textContent = "TRANSLATE IT!";
+            challengeDesc.innerHTML = `Translate "<span id="challenge-word-source" class="stat-highlight" style="font-family:'Orbitron',sans-serif; font-size:1.15rem;">${currentChallengeWord.toUpperCase()}</span>" into <span id="challenge-target-lang" class="stat-highlight" style="color:var(--neon-cyan)">${LANG_NAMES[langTo]}</span>:`;
+            
+            challengeQuizForm.classList.remove('hidden');
+            challengeQuizButtons.classList.remove('hidden');
+            challengeAttempts.classList.remove('hidden');
+            
+            challengeLearnInfo.classList.add('hidden');
+            
+            const inputEl = document.getElementById('challenge-input');
+            inputEl.value = '';
+            
+            const feedbackEl = document.getElementById('challenge-feedback');
+            feedbackEl.classList.add('hidden');
+            feedbackEl.textContent = '';
+            feedbackEl.className = 'challenge-feedback hidden';
+            
+            const attemptsCountEl = document.getElementById('challenge-attempts-count');
+            attemptsCountEl.textContent = challengeAttemptsLeft;
+            
+            const hintBoxEl = document.getElementById('challenge-hint-box');
+            hintBoxEl.classList.add('hidden');
+        }
         
         document.getElementById('challenge-screen').classList.add('active');
         
@@ -823,6 +931,9 @@ function submitTranslation() {
         // Display toast alerts
         displayWordAlerts([currentChallengeWordObj]);
         
+        // Add spelled word to set
+        spelledWordsSet.add(currentChallengeWord.toUpperCase());
+        
         // Trigger actual row removal after highlight delay
         setTimeout(() => {
             clearRowsAndDropBlocks();
@@ -879,14 +990,12 @@ function submitTranslation() {
                 }
             });
 
-            // Resumes play
-            comboCount = 0;
-            gameState = 'PLAYING';
-            spawnNextPiece();
-            
-            // Trigger loop if needed (in case the loop stopped)
-            lastTime = performance.now();
-            requestAnimationFrame(updateLoop);
+            // Resumes play after countdown
+            startCountdown(() => {
+                comboCount = 0;
+                gameState = 'PLAYING';
+                spawnNextPiece();
+            });
         }
     }
 }
@@ -921,7 +1030,7 @@ function clearRowsAndDropBlocks() {
     if (newLevel > level) {
         level = newLevel;
         // Increase speed: decrease drop interval
-        dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+        dropInterval = Math.max(100, 1000 - (level - 1) * 50);
     }
     
     updateHUD();
@@ -946,7 +1055,17 @@ function clearRowsAndDropBlocks() {
     
     // 3. Scan again! Dropping blocks could form new words
     setTimeout(() => {
-        processTurnEnd();
+        const { foundWords } = scanForWords();
+        if (foundWords.length > 0) {
+            processTurnEnd();
+        } else {
+            // Cascade complete. Run countdown before resuming play
+            startCountdown(() => {
+                comboCount = 0;
+                gameState = 'PLAYING';
+                spawnNextPiece();
+            });
+        }
     }, 150);
 }
 
@@ -1154,6 +1273,64 @@ function playerHardDrop() {
     lockPiece();
 }
 
+function shiftPieceLetters() {
+    if (gameState !== 'PLAYING' || !currentPiece) return;
+    
+    // Gather all occupied coordinates in row-major order
+    const cells = [];
+    for (let r = 0; r < currentPiece.matrix.length; r++) {
+        for (let c = 0; c < currentPiece.matrix[r].length; c++) {
+            if (currentPiece.matrix[r][c] !== null) {
+                cells.push({r, c, letter: currentPiece.matrix[r][c].letter});
+            }
+        }
+    }
+    
+    if (cells.length < 2) return;
+    
+    // Shift letters cyclically forward (0 -> 1 -> 2 -> 3 -> 0)
+    const lastLetter = cells[cells.length - 1].letter;
+    for (let i = cells.length - 1; i > 0; i--) {
+        cells[i].letter = cells[i - 1].letter;
+    }
+    cells[0].letter = lastLetter;
+    
+    // Apply changes back to matrix
+    cells.forEach(cell => {
+        currentPiece.matrix[cell.r][cell.c].letter = cell.letter;
+    });
+    
+    // Play sound effect
+    playSound([300], 'sine', 0.05, 0.08);
+}
+
+function flipPieceLettersHorizontal() {
+    if (gameState !== 'PLAYING' || !currentPiece) return;
+    
+    // Gather all occupied coordinates in row-major order
+    const cells = [];
+    for (let r = 0; r < currentPiece.matrix.length; r++) {
+        for (let c = 0; c < currentPiece.matrix[r].length; c++) {
+            if (currentPiece.matrix[r][c] !== null) {
+                cells.push({r, c, letter: currentPiece.matrix[r][c].letter});
+            }
+        }
+    }
+    
+    if (cells.length < 2) return;
+    
+    // Reverse the letters sequence
+    const reversedLetters = cells.map(cell => cell.letter).reverse();
+    
+    // Put them back in reversed order (shape stays identical)
+    cells.forEach((cell, idx) => {
+        currentPiece.matrix[cell.r][cell.c].letter = reversedLetters[idx];
+    });
+    
+    // Play sound effect
+    playSound([260], 'sine', 0.05, 0.08);
+}
+
 function lockPiece() {
     mergePiece();
     playLandSound();
@@ -1274,7 +1451,7 @@ function drawNext() {
     const mat = nextPiece.matrix;
     // Calculate bounds to center piece
     const bounds = getPieceBounds(mat);
-    const size = 20; // smaller blocks for previews
+    const size = 24; // smaller blocks for previews
     const offsetX = (nextCanvas.width - bounds.width * size) / 2 - bounds.minX * size;
     const offsetY = (nextCanvas.height - bounds.height * size) / 2 - bounds.minY * size;
     
@@ -1296,7 +1473,7 @@ function drawHold() {
     
     const mat = heldPiece.matrix;
     const bounds = getPieceBounds(mat);
-    const size = 20;
+    const size = 24;
     const offsetX = (holdCanvas.width - bounds.width * size) / 2 - bounds.minX * size;
     const offsetY = (holdCanvas.height - bounds.height * size) / 2 - bounds.minY * size;
     
@@ -1390,6 +1567,88 @@ function adjustColorBrightness(hex, percent) {
     return `#${rHex}${gHex}${bHex}`;
 }
 
+function startCountdown(callback) {
+    gameState = 'COUNTDOWN';
+    countdownScreen.classList.add('active');
+    let count = 3;
+    countdownText.textContent = count;
+    playSound([330], 'sine', 0.15, 0.1);
+    
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            countdownText.textContent = count;
+            playSound([330], 'sine', 0.15, 0.1);
+        } else {
+            clearInterval(interval);
+            countdownScreen.classList.remove('active');
+            playSound([660], 'sine', 0.3, 0.1);
+            callback();
+        }
+    }, 800);
+}
+
+function quitToMenu() {
+    gameState = 'START';
+    
+    // Hide all overlays
+    pauseScreen.classList.remove('active');
+    gameoverScreen.classList.remove('active');
+    document.getElementById('challenge-screen').classList.remove('active');
+    countdownScreen.classList.remove('active');
+    
+    // Show start screen
+    startScreen.classList.add('active');
+    
+    // Hide Spelling Bank
+    document.getElementById('active-words-panel').classList.add('hidden');
+    
+    // Reset play/pause icon in hud
+    pauseIcon.classList.remove('hidden');
+    playIcon.classList.add('hidden');
+    
+    // Reset preview canvases
+    nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+    holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+    
+    // Reset game canvas
+    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+    
+    // Redraw study guide
+    updateStudyGuide();
+}
+
+function handleLearningContinue() {
+    document.getElementById('challenge-screen').classList.remove('active');
+    gameState = 'ANIMATING';
+    
+    clearingWords = [currentChallengeWordObj];
+    clearingRowsSet = challengeRowsToClear;
+    
+    challengeWordCells.forEach(cell => {
+        if (grid[cell.y][cell.x]) {
+            grid[cell.y][cell.x].highlight = true;
+        }
+    });
+    
+    playWordClearedSound(comboCount);
+    
+    challengeWordCells.forEach(cell => {
+        const px = cell.x * BLOCK_SIZE + BLOCK_SIZE / 2;
+        const py = cell.y * BLOCK_SIZE + BLOCK_SIZE / 2;
+        const blockColor = grid[cell.y][cell.x] ? grid[cell.y][cell.x].color : COLORS['J'];
+        spawnParticles(px, py, blockColor);
+    });
+    
+    displayWordAlerts([currentChallengeWordObj]);
+    
+    spelledWordsSet.add(currentChallengeWord.toUpperCase());
+    
+    setTimeout(() => {
+        clearRowsAndDropBlocks();
+    }, 600);
+}
+
 // --- GAME FLOW ---
 function startGame() {
     initAudio();
@@ -1400,6 +1659,9 @@ function startGame() {
         startScreen.classList.add('active');
         return;
     }
+    
+    spelledWordsSet.clear();
+    learningMode = document.getElementById('learning-mode').checked;
     
     grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     score = 0;
@@ -1503,7 +1765,7 @@ function toggleAudio() {
 
 // --- MAIN LOOP ---
 function updateLoop(time = 0) {
-    if (gameState !== 'PLAYING' && gameState !== 'ANIMATING') return;
+    if (gameState !== 'PLAYING' && gameState !== 'ANIMATING' && gameState !== 'CHALLENGING' && gameState !== 'COUNTDOWN') return;
     
     const deltaTime = time - lastTime;
     lastTime = time;
@@ -1540,6 +1802,8 @@ const KEY_MAP = {
     'ShiftLeft': () => holdCurrentPiece(),
     'ShiftRight': () => holdCurrentPiece(),
     'KeyC': () => holdCurrentPiece(),
+    'KeyX': () => shiftPieceLetters(),
+    'KeyZ': () => flipPieceLettersHorizontal(),
     'KeyP': () => togglePause(),
     'Escape': () => togglePause()
 };
@@ -1579,6 +1843,18 @@ audioToggleBtn.addEventListener('click', () => {
 
 pauseToggleBtn.addEventListener('click', () => {
     togglePause();
+});
+
+pauseQuitBtn.addEventListener('click', () => {
+    quitToMenu();
+});
+
+gameoverQuitBtn.addEventListener('click', () => {
+    quitToMenu();
+});
+
+challengeLearnContinueBtn.addEventListener('click', () => {
+    handleLearningContinue();
 });
 
 // --- CHALLENGE MODAL LISTENERS ---
