@@ -374,7 +374,7 @@ function setupVocabulary() {
 
         if (!sourceWord || !targetWord) return;
 
-        const sourceWordClean = sourceWord.trim().toLowerCase();
+        const sourceWordClean = normalizeText(sourceWord);
         const targetWordClean = targetWord.trim().toLowerCase();
 
         // Length restriction: spelling word must be between 2 and 8 letters
